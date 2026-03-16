@@ -133,13 +133,46 @@ app.post('/api/register', async (req, res) => {
     return res.status(400).json({ error: 'sha256 and dHash are required' });
   }
 
-  // Check local chain first
+  // Check 1: Exact hash match — same file already registered
   const existing = blockchain.findBySha256(sha256);
   if (existing) {
-    return res.status(409).json({ error: 'Media already registered', block: existing });
+    const regBy = existing.data?.userName || 'unknown';
+    const regTime = new Date(existing.timestamp);
+    return res.status(409).json({
+      error: `This exact file was already registered by ${regBy} on ${regTime.toLocaleDateString()} at ${regTime.toLocaleTimeString()}.`,
+      block: existing,
+    });
   }
 
-  // Register on local blockchain
+  // Check 2: Perceptual match — visually similar content already registered
+  if (dHash) {
+    const similar = blockchain.findByDHash(dHash);
+    if (similar) {
+      const totalBits = similar.block.data.dHash.length * 4;
+      const similarity = Math.round(((totalBits - similar.distance) / totalBits) * 100);
+      const regBy = similar.block.data?.userName || 'unknown';
+      const regTime = new Date(similar.block.timestamp);
+      return res.status(409).json({
+        error: `Visually similar content (${similarity}% match) was already registered by ${regBy} on ${regTime.toLocaleDateString()} at ${regTime.toLocaleTimeString()}. File: ${similar.block.data?.filename}`,
+        block: similar.block,
+        similarity,
+      });
+    }
+  }
+
+  // Check 3: On-chain exact match (Sepolia)
+  if (contract) {
+    try {
+      const [existsOnChain] = await contract.verify('0x' + sha256);
+      if (existsOnChain) {
+        return res.status(409).json({
+          error: 'This exact file is already registered on Ethereum Sepolia.',
+        });
+      }
+    } catch {}
+  }
+
+  // All checks passed — register
   const block = blockchain.addBlock({
     sha256,
     dHash,

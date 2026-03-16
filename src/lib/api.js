@@ -10,11 +10,16 @@ async function request(url, options = {}) {
 }
 
 export async function registerMedia({ sha256, dHash, filename, fileSize, mimeType, userId, userName }) {
-  return request(`${API_BASE}/register`, {
+  const res = await fetch(`${API_BASE}/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sha256, dHash, filename, fileSize, mimeType, userId, userName }),
   });
+  const data = await res.json().catch(() => ({}));
+  // Return duplicate info instead of throwing — let the UI handle it
+  if (res.status === 409) return { error: data.error, block: data.block, similarity: data.similarity, existingRecord: data.existingRecord };
+  if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
+  return data;
 }
 
 export async function verifyMedia({ sha256, dHash }) {

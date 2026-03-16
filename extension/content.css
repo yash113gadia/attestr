@@ -1,0 +1,14 @@
+/* Attestr Extension — Content Script Styles */
+
+.attestr-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.attestr-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 999999;
+  pointer-events: none;
+}

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=360" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>Attestr</title>
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <svg width="28" height="28" viewBox="0 0 128 128" fill="none">
+          <rect width="128" height="128" rx="28" fill="#3B82F6" />
+          <path d="M64 28L96 96H32L64 28Z" fill="#fff" />
+          <circle cx="64" cy="80" r="8" fill="#3B82F6" />
+        </svg>
+        <span class="logo-text">Attestr</span>
+      </div>
+      <span class="badge">Media Verifier</span>
+    </header>
+
+    <!-- Instruction -->
+    <div class="instruction">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="info-icon">
+        <circle cx="8" cy="8" r="7" stroke="#3B82F6" stroke-width="1.5" fill="none" />
+        <path d="M8 7v4M8 5.5v-.01" stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+      <span>Right-click any image on a webpage and select <strong>"Verify with Attestr"</strong></span>
+    </div>
+
+    <!-- History -->
+    <div class="section-title">Recent Verifications</div>
+    <div id="history" class="history">
+      <div class="empty-state">No verifications yet</div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <a href="https://hackathon-six-eosin.vercel.app" target="_blank" rel="noopener">
+        Open Attestr Platform &rarr;
+      </a>
+    </footer>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

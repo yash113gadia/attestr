@@ -6,6 +6,9 @@ import { lazy, Suspense } from 'react';
 import ErrorBoundary from '../components/ErrorBoundary';
 const ShieldScene = lazy(() => import('../components/ShieldScene'));
 const BlockchainOrb = lazy(() => import('../components/BlockchainOrb'));
+const FingerprintViz = lazy(() => import('../components/FingerprintViz'));
+const ChainViz = lazy(() => import('../components/ChainViz'));
+const LockViz = lazy(() => import('../components/LockViz'));
 
 const fade = (delay = 0) => ({
   initial: { opacity: 0, y: 30 },
@@ -117,12 +120,21 @@ export default function LandingPage() {
       {/* ── HOW IT WORKS ── */}
       <section id="how" className="py-16 md:py-32">
         <div className="max-w-[1200px] mx-auto px-4 md:px-8">
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="max-w-xl mb-12 md:mb-20">
-            <p className="text-[11px] font-mono text-accent tracking-widest uppercase mb-4">How it works</p>
-            <h2 className="font-serif text-[32px] md:text-[42px] leading-[1.05] tracking-tight">
-              From capture to<br />immutable proof.
-            </h2>
-          </motion.div>
+          <div className="flex items-start justify-between mb-12 md:mb-20">
+            <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="max-w-xl">
+              <p className="text-[11px] font-mono text-accent tracking-widest uppercase mb-4">How it works</p>
+              <h2 className="font-serif text-[32px] md:text-[42px] leading-[1.05] tracking-tight">
+                From capture to<br />immutable proof.
+              </h2>
+            </motion.div>
+            <div className="hidden lg:block">
+              <ErrorBoundary>
+                <Suspense fallback={null}>
+                  <FingerprintViz size={160} />
+                </Suspense>
+              </ErrorBoundary>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-px bg-rule">
             {[
@@ -153,16 +165,30 @@ export default function LandingPage() {
       {/* ── CAPABILITIES ── */}
       <section id="features" className="py-16 md:py-32 border-t border-rule">
         <div className="max-w-[1200px] mx-auto px-4 md:px-8">
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="max-w-xl mb-12 md:mb-20">
-            <p className="text-[11px] font-mono text-accent tracking-widest uppercase mb-4">Capabilities</p>
-            <h2 className="font-serif text-[32px] md:text-[42px] leading-[1.05] tracking-tight">
-              Built for those who<br />need to prove truth.
-            </h2>
-          </motion.div>
+          <div className="flex items-start justify-between mb-12 md:mb-20">
+            <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="max-w-xl">
+              <p className="text-[11px] font-mono text-accent tracking-widest uppercase mb-4">Capabilities</p>
+              <h2 className="font-serif text-[32px] md:text-[42px] leading-[1.05] tracking-tight">
+                Built for those who<br />need to prove truth.
+              </h2>
+            </motion.div>
+            <div className="hidden lg:flex items-center gap-4">
+              <ErrorBoundary>
+                <Suspense fallback={null}>
+                  <LockViz size={120} />
+                </Suspense>
+              </ErrorBoundary>
+              <ErrorBoundary>
+                <Suspense fallback={null}>
+                  <ChainViz size={200} height={120} />
+                </Suspense>
+              </ErrorBoundary>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-px bg-rule">
             {[
-              { icon: Lock, title: 'Zero-Upload Privacy', desc: 'Files are hashed in your browser using Web Workers. Raw media never touches any server. Ever.' },
+              { icon: Lock, title: 'Nothing Leaves Your Device', desc: 'Your media is processed entirely in your browser. Only the cryptographic fingerprint is sent — the original file never reaches our servers.' },
               { icon: Fingerprint, title: 'Dual-Hash Verification', desc: 'SHA-256 for exact matching. Perceptual dHash survives compression, screenshots, and re-encoding.' },
               { icon: Blocks, title: 'Ethereum Settlement', desc: 'Hashes recorded on Ethereum Sepolia via smart contract. Immutable. Publicly verifiable on Etherscan.' },
               { icon: Search, title: 'Error Level Analysis', desc: 'Canvas-based ELA detects compression inconsistencies — regions that compress differently reveal edits.' },

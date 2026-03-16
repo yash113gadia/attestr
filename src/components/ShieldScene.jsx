@@ -1,268 +1,240 @@
 import { useRef, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Float } from '@react-three/drei';
 import * as THREE from 'three';
 
-// ── Particle field ──
-function ParticleField({ count = 120 }) {
-  const ref = useRef();
-  const positions = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      const r = 2.5 + Math.random() * 2;
-      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      pos[i * 3 + 2] = r * Math.cos(phi);
-    }
-    return pos;
-  }, [count]);
+// ── Rotating icosahedron wireframe core ──
+function Core() {
+  const outerRef = useRef();
+  const innerRef = useRef();
 
-  useFrame((_, d) => { if (ref.current) ref.current.rotation.y += d * 0.04; });
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    if (outerRef.current) {
+      outerRef.current.rotation.x = t * 0.1;
+      outerRef.current.rotation.y = t * 0.15;
+    }
+    if (innerRef.current) {
+      innerRef.current.rotation.x = -t * 0.08;
+      innerRef.current.rotation.z = t * 0.12;
+    }
+  });
 
   return (
-    <points ref={ref}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
-      </bufferGeometry>
-      <pointsMaterial color="#3B82F6" size={0.015} transparent opacity={0.5} sizeAttenuation blending={THREE.AdditiveBlending} depthWrite={false} />
-    </points>
+    <group>
+      {/* Outer wireframe sphere */}
+      <mesh ref={outerRef}>
+        <icosahedronGeometry args={[1.6, 2]} />
+        <meshBasicMaterial color="#3B82F6" wireframe transparent opacity={0.08} />
+      </mesh>
+      {/* Inner solid core */}
+      <mesh ref={innerRef}>
+        <icosahedronGeometry args={[0.8, 3]} />
+        <meshStandardMaterial
+          color="#1a3060"
+          metalness={0.8}
+          roughness={0.15}
+          emissive="#0d1f45"
+          emissiveIntensity={0.5}
+        />
+      </mesh>
+      {/* Core glow */}
+      <mesh>
+        <sphereGeometry args={[0.85, 32, 32]} />
+        <meshBasicMaterial color="#3B82F6" transparent opacity={0.06} blending={THREE.AdditiveBlending} />
+      </mesh>
+    </group>
   );
 }
 
-// ── Network graph ──
-function NetworkGraph({ nodeCount = 18 }) {
-  const ref = useRef();
-  const { nodes, edges } = useMemo(() => {
-    const n = [];
-    for (let i = 0; i < nodeCount; i++) {
+// ── Orbiting data rings with moving dots ──
+function DataRing({ radius = 2, speed = 0.3, tilt = 0, dotCount = 8, color = '#3B82F6', opacity = 0.12 }) {
+  const groupRef = useRef();
+  const dotsRef = useRef([]);
+
+  const ringGeo = useMemo(() => {
+    const pts = [];
+    for (let i = 0; i <= 128; i++) {
+      const a = (i / 128) * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius));
+    }
+    return new THREE.BufferGeometry().setFromPoints(pts);
+  }, [radius]);
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    if (groupRef.current) groupRef.current.rotation.y += speed * 0.01;
+    // Move dots along the ring
+    dotsRef.current.forEach((dot, i) => {
+      if (!dot) return;
+      const a = (i / dotCount) * Math.PI * 2 + t * speed;
+      dot.position.set(Math.cos(a) * radius, 0, Math.sin(a) * radius);
+    });
+  });
+
+  return (
+    <group ref={groupRef} rotation={[tilt, 0, 0]}>
+      {/* Ring line */}
+      <line geometry={ringGeo}>
+        <lineBasicMaterial color={color} transparent opacity={opacity} blending={THREE.AdditiveBlending} />
+      </line>
+      {/* Moving dots */}
+      {Array.from({ length: dotCount }).map((_, i) => (
+        <mesh key={i} ref={(el) => (dotsRef.current[i] = el)}>
+          <sphereGeometry args={[0.03, 8, 8]} />
+          <meshBasicMaterial color={color} transparent opacity={opacity + 0.3} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// ── Floating hash blocks ──
+function HashBlocks({ count = 14 }) {
+  const groupRef = useRef();
+  const blocks = useMemo(() =>
+    Array.from({ length: count }, () => {
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
-      const r = 1.8 + Math.random();
-      n.push(new THREE.Vector3(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi)));
-    }
-    const e = [];
-    for (let i = 0; i < n.length; i++)
-      for (let j = i + 1; j < n.length; j++)
-        if (n[i].distanceTo(n[j]) < 1.8) e.push([n[i], n[j]]);
-    return { nodes: n, edges: e };
-  }, [nodeCount]);
+      const r = 2 + Math.random() * 1.5;
+      return {
+        pos: [r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi)],
+        size: 0.03 + Math.random() * 0.04,
+        speed: 0.5 + Math.random() * 0.5,
+      };
+    }), [count]);
 
-  useFrame((_, d) => { if (ref.current) ref.current.rotation.y += d * 0.05; });
+  useFrame((state) => {
+    if (groupRef.current) groupRef.current.rotation.y = state.clock.elapsedTime * 0.05;
+  });
+
+  return (
+    <group ref={groupRef}>
+      {blocks.map((b, i) => (
+        <mesh key={i} position={b.pos}>
+          <boxGeometry args={[b.size, b.size, b.size]} />
+          <meshBasicMaterial color="#3B82F6" transparent opacity={0.5} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// ── Connection lines between random points ──
+function Connections({ count = 20 }) {
+  const ref = useRef();
+  const lines = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < count; i++) {
+      const makePoint = () => {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        const r = 1.5 + Math.random() * 2;
+        return new THREE.Vector3(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
+      };
+      arr.push([makePoint(), makePoint()]);
+    }
+    return arr;
+  }, [count]);
+
+  useFrame((_, d) => { if (ref.current) ref.current.rotation.y += d * 0.03; });
 
   return (
     <group ref={ref}>
-      {nodes.map((p, i) => (
-        <mesh key={i} position={p}>
-          <sphereGeometry args={[0.025, 6, 6]} />
-          <meshBasicMaterial color="#3B82F6" transparent opacity={0.6} />
-        </mesh>
-      ))}
-      {edges.map((e, i) => (
-        <line key={i} geometry={new THREE.BufferGeometry().setFromPoints(e)}>
-          <lineBasicMaterial color="#3B82F6" transparent opacity={0.1} blending={THREE.AdditiveBlending} />
+      {lines.map((pts, i) => (
+        <line key={i} geometry={new THREE.BufferGeometry().setFromPoints(pts)}>
+          <lineBasicMaterial color="#3B82F6" transparent opacity={0.05} blending={THREE.AdditiveBlending} />
         </line>
       ))}
     </group>
   );
 }
 
-// ── Hex orbit rings ──
-function HexOrbit({ radius = 2, speed = 0.2, opacity = 0.15, tilt = 0 }) {
-  const ref = useRef();
-  const geo = useMemo(() => {
-    const pts = [];
-    for (let i = 0; i <= 6; i++) {
-      const a = (i / 6) * Math.PI * 2 - Math.PI / 6;
-      pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius));
-    }
-    return new THREE.BufferGeometry().setFromPoints(pts);
-  }, [radius]);
-
-  useFrame((_, d) => { if (ref.current) ref.current.rotation.y += d * speed; });
-
-  return (
-    <group ref={ref} rotation={[tilt, 0, 0]}>
-      <line geometry={geo}>
-        <lineBasicMaterial color="#3B82F6" transparent opacity={opacity} blending={THREE.AdditiveBlending} />
-      </line>
-      {Array.from({ length: 6 }).map((_, i) => {
-        const a = (i / 6) * Math.PI * 2 - Math.PI / 6;
-        return (
-          <mesh key={i} position={[Math.cos(a) * radius, 0, Math.sin(a) * radius]}>
-            <sphereGeometry args={[0.035, 6, 6]} />
-            <meshBasicMaterial color="#3B82F6" transparent opacity={opacity + 0.2} />
-          </mesh>
-        );
-      })}
-    </group>
-  );
-}
-
-// ── Central shield — proper 3D with depth ──
-function CentralShield() {
-  const groupRef = useRef();
-  const glowRef = useRef();
-
-  // Shield outline shape
-  const shape = useMemo(() => {
-    const s = new THREE.Shape();
-    s.moveTo(0, 1.35);
-    s.lineTo(0.95, 0.75);
-    s.lineTo(0.95, -0.1);
-    s.bezierCurveTo(0.95, -0.7, 0.6, -1.2, 0, -1.5);
-    s.bezierCurveTo(-0.6, -1.2, -0.95, -0.7, -0.95, -0.1);
-    s.lineTo(-0.95, 0.75);
-    s.lineTo(0, 1.35);
-    return s;
-  }, []);
-
-  // Inner cutout for the border effect
-  const innerShape = useMemo(() => {
-    const s = new THREE.Shape();
-    const inset = 0.85;
-    s.moveTo(0, 1.35 * inset);
-    s.lineTo(0.95 * inset, 0.75 * inset);
-    s.lineTo(0.95 * inset, -0.1 * inset);
-    s.bezierCurveTo(0.95 * inset, -0.7 * inset, 0.6 * inset, -1.2 * inset, 0, -1.5 * inset);
-    s.bezierCurveTo(-0.6 * inset, -1.2 * inset, -0.95 * inset, -0.7 * inset, -0.95 * inset, -0.1 * inset);
-    s.lineTo(-0.95 * inset, 0.75 * inset);
-    s.lineTo(0, 1.35 * inset);
-    return s;
-  }, []);
-
-  const extrudeOpts = useMemo(() => ({
-    depth: 0.18,
-    bevelEnabled: true,
-    bevelThickness: 0.06,
-    bevelSize: 0.04,
-    bevelSegments: 3,
-  }), []);
-
-  useFrame((state) => {
-    const t = state.clock.elapsedTime;
-    if (groupRef.current) {
-      groupRef.current.rotation.y = Math.sin(t * 0.35) * 0.15;
-      groupRef.current.rotation.x = Math.sin(t * 0.2) * 0.05;
-    }
-    if (glowRef.current) {
-      glowRef.current.material.opacity = 0.08 + Math.sin(t * 1.8) * 0.04;
-    }
-  });
-
-  // Checkmark path
-  const checkPath = useMemo(() => {
-    const p = new THREE.CurvePath();
-    p.add(new THREE.LineCurve3(new THREE.Vector3(-0.25, 0, 0), new THREE.Vector3(-0.08, -0.22, 0)));
-    p.add(new THREE.LineCurve3(new THREE.Vector3(-0.08, -0.22, 0), new THREE.Vector3(0.3, 0.24, 0)));
-    return p;
-  }, []);
-
-  return (
-    <Float speed={1} rotationIntensity={0.12} floatIntensity={0.35}>
-      <group ref={groupRef}>
-        {/* Main shield body — dark with metallic finish */}
-        <mesh position={[0, 0, -0.09]}>
-          <extrudeGeometry args={[shape, extrudeOpts]} />
-          <meshStandardMaterial
-            color="#0c1525"
-            metalness={0.7}
-            roughness={0.25}
-          />
-        </mesh>
-
-        {/* Blue edge highlight — slightly larger, behind the body */}
-        <mesh position={[0, 0, -0.1]}>
-          <extrudeGeometry args={[shape, { depth: 0.2, bevelEnabled: true, bevelThickness: 0.07, bevelSize: 0.05, bevelSegments: 2 }]} />
-          <meshStandardMaterial color="#1a3a6e" metalness={0.8} roughness={0.2} />
-        </mesh>
-
-        {/* Inner face — darker recessed area */}
-        <mesh position={[0, 0, -0.05]}>
-          <extrudeGeometry args={[innerShape, { depth: 0.16, bevelEnabled: false }]} />
-          <meshStandardMaterial color="#080e1a" metalness={0.5} roughness={0.4} />
-        </mesh>
-
-        {/* Blue wireframe overlay for tech feel */}
-        <mesh position={[0, 0, -0.08]}>
-          <extrudeGeometry args={[shape, { depth: 0.16, bevelEnabled: false }]} />
-          <meshBasicMaterial color="#3B82F6" wireframe transparent opacity={0.06} />
-        </mesh>
-
-        {/* Front face glow — pulses */}
-        <mesh ref={glowRef} position={[0, 0, 0.1]}>
-          <shapeGeometry args={[innerShape]} />
-          <meshBasicMaterial color="#3B82F6" transparent opacity={0.08} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
-        </mesh>
-
-        {/* Checkmark — bright, prominent */}
-        <group position={[0, -0.05, 0.14]}>
-          {/* Core tick — white/bright blue, thick */}
-          <mesh>
-            <tubeGeometry args={[checkPath, 24, 0.055, 10, false]} />
-            <meshBasicMaterial color="#ffffff" />
-          </mesh>
-          {/* Blue shell around the white core */}
-          <mesh>
-            <tubeGeometry args={[checkPath, 24, 0.07, 10, false]} />
-            <meshStandardMaterial color="#3B82F6" emissive="#3B82F6" emissiveIntensity={1} metalness={0.2} roughness={0.3} />
-          </mesh>
-          {/* Outer glow — large soft halo */}
-          <mesh>
-            <tubeGeometry args={[checkPath, 24, 0.15, 8, false]} />
-            <meshBasicMaterial color="#3B82F6" transparent opacity={0.15} blending={THREE.AdditiveBlending} depthWrite={false} />
-          </mesh>
-          {/* Extra wide ambient glow */}
-          <mesh>
-            <tubeGeometry args={[checkPath, 24, 0.3, 8, false]} />
-            <meshBasicMaterial color="#3B82F6" transparent opacity={0.05} blending={THREE.AdditiveBlending} depthWrite={false} />
-          </mesh>
-        </group>
-      </group>
-    </Float>
-  );
-}
-
-// ── Pulse ring ──
-function PulseRing() {
-  const ref = useRef();
-  useFrame((state) => {
-    if (!ref.current) return;
-    const t = (state.clock.elapsedTime % 3) / 3;
-    ref.current.scale.setScalar(0.5 + t * 2);
-    ref.current.material.opacity = 0.12 * (1 - t);
-  });
-  return (
-    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]}>
-      <ringGeometry args={[0.9, 1, 48]} />
-      <meshBasicMaterial color="#3B82F6" transparent opacity={0.12} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
-    </mesh>
-  );
-}
-
-// ── Data stream ──
-function DataStream({ count = 30 }) {
+// ── Particle dust ──
+function Dust({ count = 80 }) {
   const ref = useRef();
   const positions = useMemo(() => {
     const arr = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      const t = i / count;
-      arr[i * 3] = Math.cos(t * Math.PI * 4) * (1.5 + t);
-      arr[i * 3 + 1] = (t - 0.5) * 3;
-      arr[i * 3 + 2] = Math.sin(t * Math.PI * 4) * (1.5 + t);
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = 2.5 + Math.random() * 2.5;
+      arr[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      arr[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      arr[i * 3 + 2] = r * Math.cos(phi);
     }
     return arr;
   }, [count]);
 
+  useFrame((_, d) => { if (ref.current) ref.current.rotation.y += d * 0.02; });
+
+  return (
+    <points ref={ref}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
+      </bufferGeometry>
+      <pointsMaterial color="#3B82F6" size={0.012} transparent opacity={0.4} sizeAttenuation blending={THREE.AdditiveBlending} depthWrite={false} />
+    </points>
+  );
+}
+
+// ── Pulse waves emanating from center ──
+function PulseWaves() {
+  const ring1 = useRef();
+  const ring2 = useRef();
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+
+    const pulse = (ref, offset) => {
+      if (!ref.current) return;
+      const p = ((t + offset) % 4) / 4;
+      ref.current.scale.setScalar(0.3 + p * 3);
+      ref.current.material.opacity = 0.1 * (1 - p);
+    };
+
+    pulse(ring1, 0);
+    pulse(ring2, 2);
+  });
+
+  return (
+    <>
+      <mesh ref={ring1} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.95, 1, 64]} />
+        <meshBasicMaterial color="#3B82F6" transparent opacity={0.1} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
+      </mesh>
+      <mesh ref={ring2} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.95, 1, 64]} />
+        <meshBasicMaterial color="#3B82F6" transparent opacity={0.1} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
+      </mesh>
+    </>
+  );
+}
+
+// ── Vertical data stream ──
+function DataStream() {
+  const ref = useRef();
+  const count = 40;
+
+  const positions = useMemo(() => {
+    const arr = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      const t = i / count;
+      arr[i * 3] = Math.cos(t * Math.PI * 6) * (0.8 + t * 1.5);
+      arr[i * 3 + 1] = (t - 0.5) * 4;
+      arr[i * 3 + 2] = Math.sin(t * Math.PI * 6) * (0.8 + t * 1.5);
+    }
+    return arr;
+  }, []);
+
   useFrame((state) => {
     if (!ref.current) return;
     const arr = ref.current.geometry.attributes.position.array;
+    const t = state.clock.elapsedTime;
     for (let i = 0; i < count; i++) {
-      const t = i / count;
-      const a = t * Math.PI * 4 + state.clock.elapsedTime * 0.5;
-      arr[i * 3] = Math.cos(a) * (1.5 + t);
-      arr[i * 3 + 2] = Math.sin(a) * (1.5 + t);
+      const p = i / count;
+      const a = p * Math.PI * 6 + t * 0.6;
+      arr[i * 3] = Math.cos(a) * (0.8 + p * 1.5);
+      arr[i * 3 + 2] = Math.sin(a) * (0.8 + p * 1.5);
     }
     ref.current.geometry.attributes.position.needsUpdate = true;
   });
@@ -272,7 +244,7 @@ function DataStream({ count = 30 }) {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
       </bufferGeometry>
-      <pointsMaterial color="#22C55E" size={0.02} transparent opacity={0.4} sizeAttenuation blending={THREE.AdditiveBlending} depthWrite={false} />
+      <pointsMaterial color="#22C55E" size={0.02} transparent opacity={0.35} sizeAttenuation blending={THREE.AdditiveBlending} depthWrite={false} />
     </points>
   );
 }
@@ -280,9 +252,9 @@ function DataStream({ count = 30 }) {
 // ── Mouse parallax ──
 function Rig() {
   const { camera } = useThree();
-  const target = useRef(new THREE.Vector3(0, 0, 5));
+  const target = useRef(new THREE.Vector3(0, 0, 5.5));
   useFrame((state) => {
-    target.current.set(state.pointer.x * 0.3, state.pointer.y * 0.2, 5);
+    target.current.set(state.pointer.x * 0.4, state.pointer.y * 0.25, 5.5);
     camera.position.lerp(target.current, 0.03);
     camera.lookAt(0, 0, 0);
   });
@@ -293,24 +265,25 @@ export default function ShieldScene({ className = '', height = '100%' }) {
   return (
     <div className={className} style={{ height, width: '100%' }}>
       <Canvas
-        camera={{ position: [0, 0, 5], fov: 40 }}
+        camera={{ position: [0, 0, 5.5], fov: 38 }}
         dpr={[1, 1.5]}
         gl={{ antialias: true, alpha: true }}
         style={{ background: 'transparent' }}
       >
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[5, 5, 5]} intensity={0.6} />
-        <directionalLight position={[-3, -2, 3]} intensity={0.3} color="#3B82F6" />
-        <pointLight position={[0, 0, 2]} intensity={0.3} color="#3B82F6" distance={6} />
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[5, 5, 5]} intensity={0.8} />
+        <directionalLight position={[-3, 3, 4]} intensity={0.4} color="#3B82F6" />
+        <pointLight position={[0, 0, 3]} intensity={0.4} color="#3B82F6" distance={8} />
 
-        <CentralShield />
-        <HexOrbit radius={2} speed={0.18} opacity={0.12} tilt={0.3} />
-        <HexOrbit radius={2.5} speed={-0.12} opacity={0.07} tilt={-0.2} />
-        <HexOrbit radius={1.4} speed={0.22} opacity={0.09} tilt={0.5} />
-        <NetworkGraph nodeCount={18} />
-        <ParticleField count={100} />
-        <DataStream count={30} />
-        <PulseRing />
+        <Core />
+        <DataRing radius={2.2} speed={0.4} tilt={0.3} dotCount={6} opacity={0.1} />
+        <DataRing radius={2.8} speed={-0.25} tilt={-0.5} dotCount={4} opacity={0.06} color="#6090ff" />
+        <DataRing radius={1.5} speed={0.5} tilt={0.8} dotCount={8} opacity={0.08} />
+        <HashBlocks count={12} />
+        <Connections count={16} />
+        <Dust count={70} />
+        <DataStream />
+        <PulseWaves />
         <Rig />
       </Canvas>
     </div>

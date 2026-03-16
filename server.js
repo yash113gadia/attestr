@@ -190,6 +190,10 @@ app.post('/api/verify', async (req, res) => {
     return res.status(400).json({ error: 'sha256 is required' });
   }
 
+  // Count total registrations for context
+  const chain = blockchain.getChain();
+  const totalRegistrations = chain.length - 1;
+
   // Check on-chain first if available
   let onChain = null;
   if (contract) {
@@ -197,6 +201,7 @@ app.post('/api/verify', async (req, res) => {
       const sha256Bytes = '0x' + sha256;
       const [exists, record] = await contract.verify(sha256Bytes);
       if (exists) {
+        const registeredAt = new Date(Number(record.timestamp) * 1000);
         onChain = {
           verified: true,
           filename: record.filename,
@@ -206,6 +211,7 @@ app.post('/api/verify', async (req, res) => {
           timestamp: Number(record.timestamp),
           blockNumber: Number(record.blockNumber),
           network: 'sepolia',
+          registeredAt: registeredAt.toISOString(),
         };
       }
     } catch (err) {
@@ -215,42 +221,63 @@ app.post('/api/verify', async (req, res) => {
 
   // Check local chain
   const exactMatch = blockchain.findBySha256(sha256);
+
   if (exactMatch || onChain?.verified) {
+    const registrant = onChain?.registeredBy
+      ? `${onChain.registeredBy.substring(0, 6)}...${onChain.registeredBy.substring(38)}`
+      : exactMatch?.data?.userName || 'unknown';
+    const regTime = onChain?.registeredAt
+      ? new Date(onChain.registeredAt)
+      : exactMatch ? new Date(exactMatch.timestamp) : null;
+    const timeStr = regTime ? formatTimeAgo(regTime) : 'unknown time';
+
     return res.json({
       status: 'verified',
-      message: onChain?.verified
-        ? 'Verified on Ethereum Sepolia blockchain. Media is authentic and untampered.'
-        : 'Exact match found on local ledger. Media is authentic and untampered.',
+      message: `Exact match found. First registered ${timeStr} by ${registrant}.`,
       block: exactMatch || null,
       onChain,
       similarity: 100,
+      totalRegistrations,
     });
   }
 
-  // Perceptual match (local only — on-chain doesn't store for fuzzy matching yet)
+  // Perceptual match (local only)
   if (dHash) {
     const perceptualMatch = blockchain.findByDHash(dHash);
     if (perceptualMatch) {
-      const totalBits = perceptualMatch.block.data.dHash.length * 4; // 64 chars = 256 bits, 16 chars = 64 bits
+      const totalBits = perceptualMatch.block.data.dHash.length * 4;
       const similarity = Math.round(((totalBits - perceptualMatch.distance) / totalBits) * 100);
+      const regUser = perceptualMatch.block.data?.userName || 'unknown';
+      const regTime = new Date(perceptualMatch.block.timestamp);
+
       return res.json({
         status: 'similar',
-        message: `Media content matches a registered item (${similarity}% similar). File may have been re-compressed or resized, but core content appears unchanged.`,
+        message: `Content matches a registered file (${similarity}% similar), registered ${formatTimeAgo(regTime)} by ${regUser}. The file may have been re-compressed, resized, or screenshotted.`,
         block: perceptualMatch.block,
         onChain,
         similarity,
         hammingDistance: perceptualMatch.distance,
+        totalRegistrations,
       });
     }
   }
 
   res.json({
     status: 'unverified',
-    message: 'No matching media found on the blockchain. This media has not been registered or has been significantly altered.',
+    message: `No matching media found. This file has not been registered on the blockchain.${totalRegistrations > 0 ? ` ${totalRegistrations} files are currently registered.` : ''}`,
     onChain: null,
     similarity: 0,
+    totalRegistrations,
   });
 });
+
+function formatTimeAgo(date) {
+  const diff = Date.now() - date.getTime();
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} minutes ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;
+  return `on ${date.toLocaleDateString()} at ${date.toLocaleTimeString()}`;
+}
 
 // ── Chain explorer ──
 app.get('/api/chain', async (req, res) => {

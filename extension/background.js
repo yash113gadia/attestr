@@ -1,6 +1,6 @@
 // Attestr Media Verifier — Background Service Worker
 
-const API_URL = "https://attestr-app.vercel.app/api/verify";
+const API_BASE = "https://attestr-app.vercel.app/api";
 const MAX_HISTORY = 50;
 
 // Create context menu on install
@@ -8,6 +8,11 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "attestr-verify",
     title: "Verify with Attestr",
+    contexts: ["image"],
+  });
+  chrome.contextMenus.create({
+    id: "attestr-register",
+    title: "Register with Attestr",
     contexts: ["image"],
   });
   chrome.contextMenus.create({
@@ -26,6 +31,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     return;
   }
 
+  if (info.menuItemId === "attestr-register") {
+    const imageUrl = info.srcUrl;
+    if (!imageUrl) return;
+    await registerSingleImage(imageUrl, tab.id);
+    return;
+  }
+
   if (info.menuItemId !== "attestr-verify") return;
 
   const imageUrl = info.srcUrl;
@@ -33,6 +45,75 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
   await verifySingleImage(imageUrl, tab.id);
 });
+
+// Register a single image by URL (server fetches + hashes + registers)
+async function registerSingleImage(imageUrl, tabId) {
+  try {
+    await chrome.tabs.sendMessage(tabId, {
+      type: "ATTESTR_STATUS",
+      status: "checking",
+      imageUrl,
+    });
+  } catch (_) {}
+
+  try {
+    const response = await fetch(`${API_BASE}/register-url`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: imageUrl }),
+    });
+
+    const data = await response.json();
+
+    if (response.status === 409) {
+      // Already registered — show as verified
+      const result = {
+        imageUrl,
+        hash: data.sha256 || "",
+        verified: true,
+        status: "verified",
+        timestamp: Date.now(),
+        details: { status: "verified", message: data.error || "Already registered." },
+      };
+      await storeVerification(result);
+      try {
+        await chrome.tabs.sendMessage(tabId, { type: "ATTESTR_RESULT", ...result });
+      } catch (_) {}
+      return;
+    }
+
+    if (data.success) {
+      const result = {
+        imageUrl,
+        hash: data.sha256,
+        verified: true,
+        status: "verified",
+        timestamp: Date.now(),
+        details: {
+          status: "verified",
+          message: `Registered on Ethereum Sepolia. ${data.onChain?.etherscanUrl ? 'Tx: ' + data.onChain.etherscanUrl : ''}`,
+          onChain: data.onChain,
+        },
+      };
+      await storeVerification(result);
+      try {
+        await chrome.tabs.sendMessage(tabId, { type: "ATTESTR_RESULT", ...result });
+      } catch (_) {}
+    } else {
+      throw new Error(data.error || "Registration failed");
+    }
+  } catch (err) {
+    console.error("Attestr registration failed:", err);
+    try {
+      await chrome.tabs.sendMessage(tabId, {
+        type: "ATTESTR_RESULT",
+        status: "error",
+        imageUrl,
+        error: err.message,
+      });
+    } catch (_) {}
+  }
+}
 
 // Verify a single image and send results to content script + storage
 async function verifySingleImage(imageUrl, tabId) {
@@ -117,7 +198,7 @@ async function fetchHashAndDHash(url) {
 
 // Call Attestr verification API
 async function verifyWithApi(sha256, dHash, imageUrl) {
-  const response = await fetch(API_URL, {
+  const response = await fetch(`${API_BASE}/verify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sha256, dHash }),

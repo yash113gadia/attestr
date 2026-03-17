@@ -46,6 +46,18 @@ export async function getBlock(sha256) {
   return request(`${API_BASE}/block/${sha256}`);
 }
 
+export async function registerByUrl({ url, userId, userName }) {
+  const res = await fetch(`${API_BASE}/register-url`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, userId, userName }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 409) return { error: data.error, existingRecord: data.existingRecord, sha256: data.sha256 };
+  if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
+  return data;
+}
+
 export async function detectAI(imageBase64) {
   return request(`${API_BASE}/ai-detect`, {
     method: 'POST',

@@ -11,7 +11,7 @@ import {
 import Logo from '../components/Logo';
 import ResultCard from '../components/ResultCard';
 import { hashFile } from '../lib/hash';
-import { registerMedia, verifyMedia } from '../lib/api';
+import { registerMedia, verifyMedia, registerByUrl } from '../lib/api';
 
 const CONTRACT = '0x37FCD33D5FF07cfa3A75D27B4ec4cF09e458dfac';
 const ETHERSCAN = `https://sepolia.etherscan.io/address/${CONTRACT}`;
@@ -45,7 +45,7 @@ function Stat({ icon: Icon, label, value, color = 'text-accent' }) {
    PRODUCT 1: WEB PLATFORM — Live Register + Verify
    ═══════════════════════════════════════════════════════════ */
 function LiveWebDemo() {
-  const [mode, setMode] = useState('register'); // register | verify
+  const [mode, setMode] = useState('register'); // register | verify | url
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [hashing, setHashing] = useState(false);
@@ -54,11 +54,12 @@ function LiveWebDemo() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [urlInput, setUrlInput] = useState('');
   const inputRef = useRef(null);
 
   function reset() {
     setFile(null); setPreview(null); setHashing(false); setHashStage(null);
-    setHashes(null); setSubmitting(false); setResult(null); setError(null);
+    setHashes(null); setSubmitting(false); setResult(null); setError(null); setUrlInput('');
   }
 
   async function handleFile(f) {
@@ -93,6 +94,27 @@ function LiveWebDemo() {
     setSubmitting(false);
   }
 
+  async function handleUrlRegister() {
+    if (!urlInput) return;
+    setSubmitting(true); setError(null); setResult(null);
+    setPreview(urlInput);
+    try {
+      const r = await registerByUrl({ url: urlInput });
+      if (r.error) {
+        setResult({ status: 'similar', message: r.error, block: null, onChain: null, _mode: 'url' });
+      } else {
+        setResult({
+          status: 'registered',
+          message: `Image registered on Ethereum Sepolia. SHA-256: ${r.sha256?.substring(0, 16)}...`,
+          block: r.block,
+          onChain: r.onChain,
+          _mode: 'url',
+        });
+      }
+    } catch (e) { setError(e.message); }
+    setSubmitting(false);
+  }
+
   const steps = [
     { key: 'sha256', label: 'SHA-256 cryptographic hash' },
     { key: 'dhash', label: 'Perceptual fingerprint (dHash)' },
@@ -104,6 +126,7 @@ function LiveWebDemo() {
       <div className="bg-surface-raised border-b border-rule flex">
         {[
           { key: 'register', label: 'Register', icon: Upload },
+          { key: 'url', label: 'Register URL', icon: Link2 },
           { key: 'verify', label: 'Verify', icon: ShieldCheck },
         ].map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => { setMode(key); reset(); }}
@@ -116,8 +139,48 @@ function LiveWebDemo() {
       </div>
 
       <div className="bg-[#0A0B0F] p-6">
-        {/* Upload zone */}
-        {!file && (
+
+        {/* ── URL Register mode ── */}
+        {mode === 'url' && !result && (
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <div className="flex-1 flex items-center gap-2 bg-surface border border-rule rounded-sm px-3 py-2.5">
+                <Link2 className="w-4 h-4 text-ink-faint shrink-0" strokeWidth={1.5} />
+                <input
+                  type="text"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleUrlRegister()}
+                  placeholder="Paste any image URL to register..."
+                  className="flex-1 bg-transparent text-[12px] text-ink font-mono outline-none placeholder:text-ink-faint"
+                />
+              </div>
+              <button onClick={handleUrlRegister} disabled={!urlInput || submitting}
+                className="flex items-center gap-2 bg-white text-void text-[12px] font-medium px-4 py-2.5 rounded-sm hover:bg-ink transition disabled:opacity-40">
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Blocks className="w-4 h-4" strokeWidth={1.5} />}
+                Register
+              </button>
+            </div>
+            {preview && (
+              <div className="w-full h-[160px] rounded-sm border border-rule overflow-hidden bg-surface">
+                <img src={preview} alt="" className="w-full h-full object-contain" onError={() => setPreview(null)} />
+              </div>
+            )}
+            {submitting && (
+              <div className="flex items-center justify-center gap-3 py-4">
+                <Loader2 className="w-5 h-5 text-accent animate-spin" />
+                <span className="text-[13px] text-ink-secondary">Fetching image → hashing → writing to Ethereum...</span>
+              </div>
+            )}
+            <p className="text-[11px] text-ink-faint text-center">
+              The server fetches the image, computes SHA-256, and registers it on Ethereum Sepolia.
+              The extension will then recognize this exact image on any webpage.
+            </p>
+          </div>
+        )}
+
+        {/* ── File upload zone (register / verify modes) ── */}
+        {mode !== 'url' && !file && !result && (
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); e.dataTransfer.files?.[0] && handleFile(e.dataTransfer.files[0]); }}
@@ -134,9 +197,8 @@ function LiveWebDemo() {
         )}
 
         {/* File selected — show progress */}
-        {file && !result && (
+        {mode !== 'url' && file && !result && (
           <div className="space-y-4">
-            {/* Preview + filename */}
             <div className="flex items-center gap-4">
               {preview && file.type.startsWith('image/') && (
                 <img src={preview} alt="" className="w-16 h-16 rounded-sm object-cover border border-rule" />
@@ -153,7 +215,6 @@ function LiveWebDemo() {
               <button onClick={reset} className="text-[11px] text-ink-faint hover:text-ink-tertiary transition">Reset</button>
             </div>
 
-            {/* Hash progress */}
             {hashing && (
               <div className="border border-rule rounded-sm bg-surface p-4">
                 <div className="flex items-center gap-2 mb-3">
@@ -177,7 +238,6 @@ function LiveWebDemo() {
               </div>
             )}
 
-            {/* Hashes computed — show them */}
             {hashes && !submitting && mode === 'register' && (
               <div className="space-y-3">
                 <div className="border border-rule rounded-sm bg-surface p-4 font-mono text-[11px] space-y-1.5">
@@ -191,7 +251,6 @@ function LiveWebDemo() {
               </div>
             )}
 
-            {/* Submitting spinner */}
             {submitting && (
               <div className="flex items-center justify-center gap-3 py-6">
                 <Loader2 className="w-5 h-5 text-accent animate-spin" />
@@ -206,10 +265,15 @@ function LiveWebDemo() {
         {/* Result */}
         {result && (
           <div className="space-y-4">
+            {preview && mode === 'url' && (
+              <div className="w-full h-[120px] rounded-sm border border-rule overflow-hidden bg-surface">
+                <img src={preview} alt="" className="w-full h-full object-contain" onError={() => {}} />
+              </div>
+            )}
             <ResultCard status={result.status} message={result.message} block={result.block} similarity={result.similarity} onChain={result.onChain} />
             <button onClick={reset}
               className="w-full text-[12px] text-ink-tertiary hover:text-ink transition py-2 border border-rule rounded-sm">
-              {mode === 'register' ? 'Register Another' : 'Verify Another'}
+              {mode === 'verify' ? 'Verify Another' : 'Register Another'}
             </button>
           </div>
         )}

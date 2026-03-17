@@ -29,6 +29,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-4 md:gap-8">
             <a href="#how" className="hidden md:inline text-[13px] text-ink-tertiary hover:text-ink transition">How it Works</a>
             <a href="#features" className="hidden md:inline text-[13px] text-ink-tertiary hover:text-ink transition">Capabilities</a>
+            <Link to="/demo" className="hidden md:inline text-[13px] text-accent hover:text-accent/80 transition font-medium">Demo</Link>
             <Link to="/register" className="text-[12px] md:text-[13px] text-ink bg-surface-raised hover:bg-surface-hover border border-rule px-3 md:px-4 py-1.5 rounded-sm transition">
               Launch Platform
             </Link>

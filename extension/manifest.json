@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Attestr - Media Verifier",
-  "version": "1.0.0",
-  "description": "Verify the authenticity of any image against the Attestr blockchain",
+  "version": "1.1.0",
+  "description": "Verify the authenticity of any image against the Attestr blockchain. Right-click or auto-scan all images on a page.",
   "permissions": ["contextMenus", "activeTab", "storage"],
   "host_permissions": [
-    "https://hackathon-six-eosin.vercel.app/*",
+    "https://attestr-app.vercel.app/*",
     "<all_urls>"
   ],
   "background": {

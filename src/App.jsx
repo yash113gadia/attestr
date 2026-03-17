@@ -10,6 +10,7 @@ import VerifyPage from './pages/VerifyPage';
 import ExplorerPage from './pages/ExplorerPage';
 import ActivityPage from './pages/ActivityPage';
 import ApiDocsPage from './pages/ApiDocsPage';
+import DemoPage from './pages/DemoPage';
 
 // Mobile
 import MobileLayout from './components/mobile/MobileLayout';
@@ -39,6 +40,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/demo" element={<DemoPage />} />
       <Route element={<Layout />}>
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify" element={<VerifyPage />} />

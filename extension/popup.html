@@ -20,13 +20,24 @@
       <span class="badge">Media Verifier</span>
     </header>
 
+    <!-- Scan Button -->
+    <div class="scan-section">
+      <button id="scanBtn" class="scan-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        Scan All Images on Page
+      </button>
+      <div id="scanStatus" class="scan-status"></div>
+    </div>
+
     <!-- Instruction -->
     <div class="instruction">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="info-icon">
         <circle cx="8" cy="8" r="7" stroke="#3B82F6" stroke-width="1.5" fill="none" />
         <path d="M8 7v4M8 5.5v-.01" stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round" />
       </svg>
-      <span>Right-click any image on a webpage and select <strong>"Verify with Attestr"</strong></span>
+      <span>Right-click any image &rarr; <strong>"Verify with Attestr"</strong><br/>Or right-click page &rarr; <strong>"Scan all images"</strong></span>
     </div>
 
     <!-- History -->
@@ -37,7 +48,7 @@
 
     <!-- Footer -->
     <footer class="footer">
-      <a href="https://hackathon-six-eosin.vercel.app" target="_blank" rel="noopener">
+      <a href="https://attestr-app.vercel.app" target="_blank" rel="noopener">
         Open Attestr Platform &rarr;
       </a>
     </footer>

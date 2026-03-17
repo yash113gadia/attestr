@@ -10,5 +10,17 @@
   top: 6px;
   right: 6px;
   z-index: 999999;
-  pointer-events: none;
+  cursor: default;
+}
+
+.attestr-card {
+  position: absolute;
+  top: 6px;
+  right: 36px;
+  z-index: 999998;
+}
+
+@keyframes attestr-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }

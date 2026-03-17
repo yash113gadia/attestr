@@ -61,6 +61,44 @@ body {
   border-radius: 20px;
 }
 
+/* Scan Section */
+.scan-section {
+  padding: 12px 16px 0;
+}
+
+.scan-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.scan-btn:hover {
+  background: #2563eb;
+}
+
+.scan-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.scan-status {
+  font-size: 11px;
+  text-align: center;
+  padding: 4px 0 0;
+  min-height: 18px;
+}
+
 /* Instruction */
 .instruction {
   display: flex;

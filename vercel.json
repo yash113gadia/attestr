@@ -10,5 +10,8 @@
     "api/**/*.js": {
       "maxDuration": 30
     }
+  },
+  "deploymentProtection": {
+    "standard": "none"
   }
 }

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera as CameraIcon, ArrowLeft, Shield, Lock, Fingerprint, Blocks, Zap, Eye, FileCheck } from 'lucide-react';
+import { Camera as CameraIcon, ArrowLeft, Shield, Lock, Fingerprint, Blocks, Zap, Eye, FileCheck, Link2, Loader2 } from 'lucide-react';
 import ScanGraphic from '../components/ScanGraphic';
 import UploadZone from '../components/UploadZone';
 import CameraCapture from '../components/CameraCapture';
@@ -11,7 +11,7 @@ import ExifPanel from '../components/ExifPanel';
 import AIDetector from '../components/AIDetector';
 import { hashFile } from '../lib/hash';
 import { extractExif } from '../lib/exif';
-import { registerMedia } from '../lib/api';
+import { registerMedia, registerByUrl } from '../lib/api';
 import { useAuth } from '../components/AuthProvider';
 import { signInWithGoogle } from '../lib/firebase';
 
@@ -30,6 +30,9 @@ export default function RegisterPage() {
   const [error, setError] = useState(null);
   const [registering, setRegistering] = useState(false);
   const [exifData, setExifData] = useState(null);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [urlSubmitting, setUrlSubmitting] = useState(false);
 
   function cleanupPreview() { if (previewRef.current) { URL.revokeObjectURL(previewRef.current); previewRef.current = null; } }
 
@@ -53,7 +56,22 @@ export default function RegisterPage() {
     setRegistering(false);
   }
 
-  function reset() { cleanupPreview(); setFile(null); setPreview(null); setHashes(null); setResult(null); setError(null); }
+  async function handleUrlRegister() {
+    if (!urlInput) return;
+    setUrlSubmitting(true); setError(null); setResult(null);
+    try {
+      const r = await registerByUrl({ url: urlInput, userId: user?.uid, userName: user?.displayName });
+      if (r.error) {
+        setResult({ status: 'similar', message: r.error, onChain: null });
+      } else {
+        setResult({ status: 'registered', message: `Image registered on Ethereum Sepolia. SHA-256: ${r.sha256?.substring(0, 20)}...`, block: r.block, onChain: r.onChain });
+      }
+      setShowUrlInput(false);
+    } catch (e) { setError(e.message); }
+    setUrlSubmitting(false);
+  }
+
+  function reset() { cleanupPreview(); setFile(null); setPreview(null); setHashes(null); setResult(null); setError(null); setShowUrlInput(false); setUrlInput(''); }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6 md:gap-12">
@@ -146,11 +164,41 @@ export default function RegisterPage() {
               <UploadZone onFileSelect={handleFile} />
 
               <div className="flex items-center justify-between">
-                <button onClick={() => setShowCamera(true)} className="text-[12px] text-ink-faint hover:text-ink-secondary transition">
-                  <CameraIcon className="w-3.5 h-3.5 inline mr-1 -mt-px" />capture from camera
-                </button>
+                <div className="flex items-center gap-4">
+                  <button onClick={() => setShowCamera(true)} className="text-[12px] text-ink-faint hover:text-ink-secondary transition">
+                    <CameraIcon className="w-3.5 h-3.5 inline mr-1 -mt-px" />capture from camera
+                  </button>
+                  <button onClick={() => setShowUrlInput(!showUrlInput)} className="text-[12px] text-ink-faint hover:text-ink-secondary transition">
+                    <Link2 className="w-3.5 h-3.5 inline mr-1 -mt-px" />register from URL
+                  </button>
+                </div>
                 <span className="text-[11px] text-ink-faint font-mono">max 100MB</span>
               </div>
+
+              {showUrlInput && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="border border-rule rounded-sm bg-surface p-4">
+                  <p className="text-[11px] font-mono text-ink-faint tracking-widest mb-3">REGISTER IMAGE BY URL</p>
+                  <div className="flex gap-2">
+                    <div className="flex-1 flex items-center gap-2 bg-void border border-rule rounded-sm px-3 py-2">
+                      <Link2 className="w-4 h-4 text-ink-faint shrink-0" strokeWidth={1.5} />
+                      <input
+                        type="text"
+                        value={urlInput}
+                        onChange={(e) => setUrlInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleUrlRegister()}
+                        placeholder="https://example.com/image.jpg"
+                        className="flex-1 bg-transparent text-[12px] text-ink font-mono outline-none placeholder:text-ink-faint"
+                      />
+                    </div>
+                    <button onClick={handleUrlRegister} disabled={!urlInput || urlSubmitting}
+                      className="flex items-center gap-2 bg-white text-void text-[12px] font-medium px-4 py-2 rounded-sm hover:bg-ink transition disabled:opacity-40">
+                      {urlSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Blocks className="w-4 h-4" strokeWidth={1.5} />}
+                      Register
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-ink-faint mt-2">Server fetches the image, computes SHA-256, and registers on Ethereum. The Chrome extension will recognize this image on any webpage.</p>
+                </motion.div>
+              )}
 
               {/* Feature highlights */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">

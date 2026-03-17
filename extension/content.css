@@ -1,26 +1,18 @@
 /* Attestr Extension — Content Script Styles */
 
-.attestr-wrapper {
-  position: relative;
-  display: inline-block;
-}
-
-.attestr-badge {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  z-index: 999999;
-  cursor: default;
-}
-
-.attestr-card {
-  position: absolute;
-  top: 6px;
-  right: 36px;
-  z-index: 999998;
-}
-
 @keyframes attestr-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+.attestr-floating-badge {
+  all: initial !important;
+  position: fixed !important;
+  z-index: 2147483647 !important;
+}
+
+.attestr-floating-card {
+  all: initial !important;
+  position: fixed !important;
+  z-index: 2147483647 !important;
 }

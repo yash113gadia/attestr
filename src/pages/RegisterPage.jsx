@@ -158,8 +158,18 @@ export default function RegisterPage() {
             </motion.div>
           )}
 
+          {/* URL registration result (no file involved) */}
+          {!file && result && (
+            <motion.div key="url-result" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
+              <ResultCard {...result} />
+              <button onClick={reset} className="flex items-center gap-1.5 text-[12px] text-ink-faint hover:text-ink transition">
+                <ArrowLeft className="w-3 h-3" /> Start over
+              </button>
+            </motion.div>
+          )}
+
           {/* Upload zone */}
-          {(user || user === undefined) && !file && !showCamera && (
+          {(user || user === undefined) && !file && !showCamera && !result && (
             <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
               <UploadZone onFileSelect={handleFile} />
 

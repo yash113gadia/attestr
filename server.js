@@ -145,9 +145,11 @@ app.post('/api/register', async (req, res) => {
   }
 
   // Check 2: Perceptual match — visually similar content already registered
-  if (dHash) {
+  // Only run perceptual matching for images (video dHashes are SHA-256-derived, not perceptual)
+  const isImage = mimeType && mimeType.startsWith('image/');
+  if (dHash && isImage) {
     const similar = blockchain.findByDHash(dHash);
-    if (similar) {
+    if (similar && similar.block.data?.mimeType?.startsWith('image/')) {
       const totalBits = similar.block.data.dHash.length * 4;
       const similarity = Math.round(((totalBits - similar.distance) / totalBits) * 100);
       const regBy = similar.block.data?.userName || 'unknown';

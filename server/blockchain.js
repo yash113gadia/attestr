@@ -99,8 +99,8 @@ class Blockchain {
     );
   }
 
-  findByDHash(dHash, threshold = 15) {
-    // 256-bit hash: threshold 15 out of 256 = ~94% match required
+  findByDHash(dHash, threshold = 8) {
+    // 256-bit hash: threshold 8 out of 256 = ~97% match required
     let bestMatch = null;
     let bestDistance = Infinity;
 

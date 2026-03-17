@@ -14,7 +14,9 @@ self.onmessage = async (e) => {
 
     self.postMessage({ type: 'progress', stage: 'sha256', progress: 100 });
 
-    // dHash (perceptual hash) for images — 16x16 = 256 bits for better accuracy
+    // dHash (perceptual hash) — 16x16 = 256 bits for better accuracy
+    // For images: computed from pixel data
+    // For videos: derived from SHA-256 (no visual perceptual hash possible in a worker)
     let dHash = null;
     if (type && type.startsWith('image/')) {
       self.postMessage({ type: 'progress', stage: 'dhash', progress: 0 });
@@ -54,6 +56,12 @@ self.onmessage = async (e) => {
       }
 
       bitmap.close();
+      self.postMessage({ type: 'progress', stage: 'dhash', progress: 100 });
+    } else {
+      // Non-image files (video, etc): derive dHash from SHA-256 so registration works
+      // This won't provide perceptual matching for videos, but allows them to register
+      self.postMessage({ type: 'progress', stage: 'dhash', progress: 0 });
+      dHash = sha256.substring(0, 64);
       self.postMessage({ type: 'progress', stage: 'dhash', progress: 100 });
     }
 
